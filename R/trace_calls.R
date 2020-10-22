@@ -16,15 +16,15 @@ trace_calls <- function (x, parent_functions = NULL, parent_ref = NULL, traces =
   count <- function(key, val, is_first_trace = FALSE) {
     covr_call <- call(
       "{",
-      as.call(list(call(":::", as.symbol("covr"), as.symbol("set_current_test")), key)),
+      as.call(list(call(":::", as.symbol("covr"), as.symbol("record_test")), key)),
       as.call(list(call(":::", as.symbol("covr"), as.symbol("count")), key)),
       val
     )
 
+    # only record the current test for first expression in each object
     traces$n <- traces$n + 1L
-
-    # omit test trace if no parent ref or explicitly disabled
     if (traces$n > 1L) covr_call <- covr_call[-2]
+
     call("if", TRUE, covr_call)
   }
 
@@ -108,8 +108,8 @@ trace_calls <- function (x, parent_functions = NULL, parent_ref = NULL, traces =
   }
 }
 
-.current_test <- new.env(parent = emptyenv())
 .counters <- new.env(parent = emptyenv())
+.tests <- new.env(parent = emptyenv())
 
 #' initialize a new counter
 #'
@@ -121,8 +121,7 @@ new_counter <- function(src_ref, parent_functions) {
   .counters[[key]]$value <- 0
   .counters[[key]]$srcref <- src_ref
   .counters[[key]]$functions <- parent_functions
-  # # substantial (~15% faster) speedup if this _isnt_ instantiated
-  # .counters[[key]]$testrefs <- list()    
+  .counters[[key]]$tests <- matrix(integer(0L), ncol = 2L, dimnames = list(c(), c("test", "value")))
   key
 }
 
@@ -130,9 +129,9 @@ new_counter <- function(src_ref, parent_functions) {
 #'
 #' @param key generated with [key()]
 #' @keywords internal
-count <- function(key, log_test = FALSE) {
+count <- function(key) {
   .counters[[key]]$value <- .counters[[key]]$value + 1L
-  if (log_test) count_test(key)
+  count_test(key)
 }
 
 #' append a testref to a counter
@@ -140,43 +139,51 @@ count <- function(key, log_test = FALSE) {
 #' @param key generated with [key()]
 #' @keywords internal
 count_test <- function(key) {
-  .counters[[key]]$testrefs <- append(
-    .counters[[key]]$testrefs, 
-    list(.current_test$srcref)
-  )
+  n <- nrow(.counters[[key]]$tests)
+  ntests <- length(.tests$srcrefs)
+  if (n && .counters[[key]]$tests[[n,1L]] == ntests) {
+    .counters[[key]]$tests[[n,2L]] <- .counters[[key]]$tests[[n,2L]] + 1L
+  } else {
+    .counters[[key]]$tests <- rbind(.counters[[key]]$tests, c(ntests, 1L))
+  }
 }
 
-#' set the current 
+#' set the current test
 #'
 #' @param key generated with [key()]
 #' @keywords internal
-set_current_test <- function(key) {
+record_test <- function(key) {
   # only execute once per set of counters
-  if (is.null(.current_test$nframe)) {
-    .current_test$nframe <- find_first_srcref_nframe(rootpath = getwd())
+  if (is.null(.tests$nframe)) {
+    .tests$nframe <- find_first_srcref_nframe(rootpath = getwd())
+    .counters[["testrefs"]] <- list()
   }
-  if (is.null(.current_test$nframe)) {
-    .current_test$srcref <- NULL
+  
+  if (!is.null(.tests$nframe)) {
+    testref <- getSrcref(sys.call(which = .tests$nframe))
   } else {
-    .current_test$srcref <- getSrcref(sys.call(which = .current_test$nframe))
+    testref <- list(NULL)
+  }
+ 
+  if (!length(.tests$srcrefs) || !identical(testref, .counters$testrefs[[length(.counters$testrefs)]])) {
+    .tests$srcrefs <- append(.counters$testrefs, list(testref))
   }
 }
-
 
 #' clear all previous counters
 #'
 #' @keywords internal
 clear_counters <- function() {
   rm(envir = .counters, list = ls(envir = .counters))
-  clear_current_test()
+  clear_tests()
 }
 
 
 #' clear all current test data
 #'
 #' @keywords internal
-clear_current_test <- function() {
-  rm(envir = .current_test, list = ls(envir = .current_test))
+clear_tests <- function() {
+  rm(envir = .tests, list = ls(envir = .tests))
 }
 
 #' Generate a key for a  call

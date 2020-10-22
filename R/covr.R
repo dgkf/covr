@@ -45,6 +45,8 @@ reset_traces <- function() {
 save_trace <- function(directory) {
   tmp_file <- temp_file("covr_trace_", tmpdir = directory)
   saveRDS(.counters, file = tmp_file)
+  tmp_file <- temp_file("covr_test_trace_", tmpdir = directory)
+  saveRDS(.tests, file = tmp_file)
 }
 
 #' Calculate test coverage for a specific function.
@@ -168,6 +170,7 @@ environment_coverage <- function(
   exec_env <- new.env(parent = env)
 
   trace_environment(env)
+
   on.exit({
     reset_traces()
     clear_counters()
@@ -370,7 +373,8 @@ package_coverage <- function(path = ".",
 
   # read tracing files
   trace_files <- list.files(path = tmp_lib, pattern = "^covr_trace_[^/]+$", full.names = TRUE)
-  coverage <- merge_coverage(trace_files)
+  test_trace_files <- list.files(path = tmp_lib, pattern = "^covr_test_trace_[^/]+$", full.names = TRUE)
+  coverage <- merge_coverage(trace_files, test_trace_files)
   if (!uses_icc()) {
     res <- run_gcov(pkg$path, quiet = quiet, clean = clean)
   } else {
@@ -449,7 +453,7 @@ show_failures <- function(dir) {
 # merge multiple coverage files together. Assumes the order of coverage lines
 # is the same in each object, this should always be the case if the objects are
 # from the same initial library.
-merge_coverage <- function(files) {
+merge_coverage <- function(files, test_files) {
   nfiles <- length(files)
   if (nfiles == 0) {
     return()
@@ -533,19 +537,24 @@ run_commands <- function(pkg, lib, commands) {
   }
 }
 
-# Add hooks to the installed package
-# Installed packages have lazy loading code to setup the lazy load database at
-# pkg_name/R/pkg_name. This function adds a user level onLoad Hook to the
-# package which calls `covr::trace_environment`, so the package environment is
-# traced when the package is loaded.
-# It also adds a finalizer that saves the tracing information to the package
-# namespace environment which is run when the ns is garbage collected or the
-# process ends. This ensures the tracing count information will be written
-# regardless of how the process terminates.
-# @param pkg_name name of the package to add hooks to
-# @param lib the library path to look in
-# @param fix_mcexit whether to add the fix for mcparallel:::mcexit
+#' Add hooks to the installed package
+#' 
+#' Installed packages have lazy loading code to setup the lazy load database at
+#' pkg_name/R/pkg_name. This function adds a user level onLoad Hook to the
+#' package which calls `covr::trace_environment`, so the package environment is
+#' traced when the package is loaded.
+#'
+#' It also adds a finalizer that saves the tracing information to the package
+#' namespace environment which is run when the ns is garbage collected or the
+#' process ends. This ensures the tracing count information will be written
+#' regardless of how the process terminates.
+#'
+#' @param pkg_name name of the package to add hooks to
+#' @param lib the library path to look in
+#' @param fix_mcexit whether to add the fix for mcparallel:::mcexit
+#'
 add_hooks <- function(pkg_name, lib, fix_mcexit = FALSE) {
+
   trace_dir <- paste0("Sys.getenv(\"COVERAGE_DIR\", \"", lib, "\")")
 
   load_script <- file.path(lib, pkg_name, "R", pkg_name)
