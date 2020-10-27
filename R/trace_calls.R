@@ -13,7 +13,7 @@
 trace_calls <- function (x, parent_functions = NULL, parent_ref = NULL, traces = as.environment(list(n = 0L))) {
 
   # Construct the calls by hand to avoid a NOTE from R CMD check
-  count <- function(key, val, is_first_trace = FALSE) {
+  count <- function(key, val) {
     covr_call <- call(
       "{",
       as.call(list(call(":::", as.symbol("covr"), as.symbol("set_current_test")), key)),
@@ -122,7 +122,7 @@ new_counter <- function(src_ref, parent_functions) {
   .counters[[key]]$srcref <- src_ref
   .counters[[key]]$functions <- parent_functions
   # # substantial (~15% faster) speedup if this _isnt_ instantiated
-  # .counters[[key]]$testrefs <- list()    
+  .counters[[key]]$testrefs <- list()    
   key
 }
 

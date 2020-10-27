@@ -466,6 +466,7 @@ merge_coverage <- function(files) {
     y <- suppressWarnings(readRDS(files[i]))
     for (name in intersect(names, names(y))) {
       x[[name]]$value <- x[[name]]$value + y[[name]]$value
+      x[[name]]$testrefs <- append(x[[name]]$testrefs, y[[name]]$testrefs)
     }
     for (name in setdiff(names(y), names)) {
       x[[name]] <- y[[name]]
