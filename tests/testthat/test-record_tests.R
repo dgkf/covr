@@ -221,3 +221,62 @@ test_that("covr.record_tests: records multiple calls to the same test expr", {
   expect_equal(cov[[trace_f2]]$tests[, "test"], c(2, 2, 2))
   expect_equal(cov[[trace_f2]]$tests[, "call"], c(1, 2, 3))
 })
+
+test_that("scrub_anon_fn_envs replaces function environments in calls", {
+  f1 <- function(abc) { abc }
+  f2 <- function(xyz) { xyz }
+  call_with_env <- as.call(list(f1, as.call(list(f2, f2))))
+  expect_true(!is.null(environment(call_with_env[[1]])))
+  expect_true(!is.null(environment(call_with_env[[2]][[1]])))
+  expect_true(!is.null(environment(call_with_env[[2]][[2]])))
+
+  call_with_emptyenv <- scrub_anon_fn_envs(call_with_env)
+  expect_true(is.call(call_with_emptyenv))
+  expect_true(identical(environment(call_with_emptyenv[[1]]), emptyenv()))
+  expect_true(identical(environment(call_with_emptyenv[[2]][[1]]), emptyenv()))
+  expect_true(identical(environment(call_with_emptyenv[[2]][[2]]), emptyenv()))
+})
+
+test_that(
+  paste0(
+    "covr.record_tests: scrub_anon_fn_envs replaces function environments ",
+    "with empty environments for saving call stack"
+  ), {
+
+  skip_if_not_installed("R6")
+
+  fcode <- 'r6example <- R6::R6Class(
+    private = list(
+      lhs = NULL,
+      rhs = NULL
+    ),
+    public = list(
+      initialize = function(lhs, rhs) {
+        private$lhs <- lhs
+        private$rhs <- rhs
+      }
+    ),
+    active = list(
+      add = function(value) {
+        self$d1 + self$d2
+      },
+      d1 = function(value) {
+        private$lhs
+      },
+      d2 = function(value) {
+        private$rhs
+      }
+    )
+  )'
+
+  withr::with_options(c("covr.record_tests" = TRUE), {
+    cov <- code_coverage(fcode, "
+      obj <- r6example$new(3, 4)
+      obj$add == 7
+    ")
+  })
+
+  callstack <- attr(cov, "tests")[[2]]
+  active_binding_call <- tail(callstack, 1)[[1]]
+  expect_identical(environment(active_binding_call[[1]]), emptyenv())
+})

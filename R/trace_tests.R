@@ -210,7 +210,7 @@ update_current_test <- function() {
   exec_frames <- unique(c(test_frames, syscall_first_count - 1L))
 
   # build updated current test data, isolating relevant frames
-  .current_test$trace <- syscalls[exec_frames]
+  .current_test$trace <- lapply(syscalls[exec_frames], scrub_anon_fn_envs)
   .current_test$i <- 0L
   .current_test$frames <- exec_frames
   .current_test$last_frame <- exec_frames[[Position(
@@ -327,6 +327,29 @@ truncate_call <- function(call_obj, limit = 1e4) {
   call_obj <- head(call_obj, limit)
   call_obj[[length(call_obj)]] <- quote(`<truncated>`)
   call_obj
+}
+
+#' Scrub Environments from Anonymous Function Calls
+#'
+#' When a sys call is to an anonymous function, the anonymous function is
+#' included as the object that the call is against. This function binds its
+#' calling environment, which may bloat the sys calls object and in worst
+#' case scenario might contain C API memory pointers that can produce
+#' segmentation faults when serialized to disk.
+#'
+#' As the environment data is not useful after saving the coverage traces to
+#' disk and restoring them in the parent R session, these are discarded and
+#' replaced with an `emptyenv()`
+#'
+#' @param calls A call object which we should
+#'
+scrub_anon_fn_envs <- function(x) {
+  if (is.call(x)) {
+    return(as.call(lapply(x, scrub_anon_fn_envs)))
+  } else if (!is.null(x) && !is.null(environment(x))) {
+    environment(x) <- emptyenv()
+  }
+  x
 }
 
 #' Returns TRUE if we've moved on from test reflected in .current_test

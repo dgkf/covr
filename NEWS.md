@@ -1,5 +1,8 @@
 # covr (development version)
 
+* Prevent `covr.record_tests` storing calling environments of anonymous
+  functions within the logged call stack. (@dgkf, #573)
+
 * Prevent `covr.record_tests` option from logging duplicate tests when the same
   line of testing code is hit repeatedly, as in a loop. (@dgkf, #528)
 
