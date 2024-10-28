@@ -81,6 +81,7 @@ exclude <- function(coverage,
       normalize_path(get_source_filename(x$srcref, full.names = TRUE))
     })
 
+  is.na(df) <- -1L  # hotfix for NA fields, causing errors with seq()
   to_exclude <- to_exclude | vlapply(seq_len(NROW(df)),
     function(i) {
       file <- df[i, "full_name"]
