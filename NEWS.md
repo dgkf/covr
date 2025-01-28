@@ -11,6 +11,8 @@
 
 * Fixed an issue where attempting to generate code coverage on an already-loaded
   package could fail on Windows. (@kevinushey, #574)
+* Prevent `covr.record_tests` storing calling environments of anonymous
+  functions within the logged call stack. (@dgkf, #573)
 
 * Prevent `covr.record_tests` option from logging duplicate tests when the same
   line of testing code is hit repeatedly, as in a loop. (@dgkf, #528)
