@@ -1,5 +1,8 @@
 # covr (development version)
 
+* `covr.record_tests` logging performance improved by storing tests using
+  a hash of their call stack, avoiding costly comparisions. (@dgkf)
+
 * covr now uses `testthat::with_mocked_bindings()` for its internal testing (@olivroy, #595).
 
 * Fix R CMD check NOTE: non-API calls to SET_BODY, SET_CLOENV, SET_FORMALS (@t-kalinowski, #587)
@@ -11,6 +14,7 @@
 
 * Fixed an issue where attempting to generate code coverage on an already-loaded
   package could fail on Windows. (@kevinushey, #574)
+
 * Prevent `covr.record_tests` storing calling environments of anonymous
   functions within the logged call stack. (@dgkf, #573)
 

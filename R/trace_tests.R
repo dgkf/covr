@@ -210,7 +210,7 @@ update_current_test <- function() {
   exec_frames <- unique(c(test_frames, syscall_first_count - 1L))
 
   # build updated current test data, isolating relevant frames
-  .current_test$trace <- lapply(syscalls[exec_frames], scrub_anon_fn_envs)
+  .current_test$trace <- syscalls[exec_frames]
   .current_test$i <- 0L
   .current_test$frames <- exec_frames
   .current_test$last_frame <- exec_frames[[Position(
@@ -229,6 +229,9 @@ update_current_test <- function() {
   .current_test$key <- current_test_key()
   .current_test$index <- current_test_index()
   .current_test$call_count <- current_test_call_count()
+
+  # scrub test trace, needs to happen _after_ key generation or srcref is lost
+  .current_test$trace <- lapply(.current_test$trace, scrub_anon_fn_envs)
 
   # NOTE: r-bugs 18348
   # restrict test call lengths to avoid R Rds deserialization limit
@@ -260,11 +263,14 @@ update_current_test <- function() {
 #'
 #' @keywords internal
 current_test_key <- function() {
-  if (!inherits(.current_test$src, "srcref")) return("")
-  file.path(
-    dirname(get_source_filename(.current_test$src, normalize = TRUE)),
-    key(.current_test$src)
-  )
+  if (inherits(.current_test$src, "srcref")) {
+    file.path(
+      dirname(get_source_filename(.current_test$src, normalize = TRUE)),
+      key(.current_test$src)
+    )
+  } else {
+    digest::digest(.current_test$trace)
+  }
 }
 
 #' Retrieve the index for the test in `.counters$tests`
@@ -277,20 +283,13 @@ current_test_key <- function() {
 #'
 #' @keywords internal
 current_test_index <- function() {
-  # check if test has already been encountered and reuse test index
-  if (inherits(.current_test$src, "srcref")) {
+  if (is.null(.counters$tests[[.current_test$key]])) {
+    length(.counters$tests) + 1L
+  } else {
     # when tests have srcrefs, we can quickly compare test keys
     match(
       .current_test$key,
       names(.counters$tests),
-      nomatch = length(.counters$tests) + 1L
-    )
-  } else {
-    # otherwise we compare call stacks
-    Position(
-      function(t) identical(t[], .current_test$trace),  # t[] to ignore attr
-      .counters$tests,
-      right = TRUE,
       nomatch = length(.counters$tests) + 1L
     )
   }
