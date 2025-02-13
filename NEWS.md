@@ -12,6 +12,11 @@
 * Fixed a performance regression and an error triggered by a change in R
   4.4.0. (@kyleam, #588)
 
+* Hotfix failures due to `NA` coverage trace `srcrefs` encountered in rare
+  cases when applying coverage exclusions. This is understood to be due to a
+  change in base R. Until a root cause is discovered, this work-around will
+  allow for calculating coverage in these rare cases. (@dgkf, #579)
+
 * Fixed an issue where attempting to generate code coverage on an already-loaded
   package could fail on Windows. (@kevinushey, #574)
 
