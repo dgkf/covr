@@ -127,7 +127,7 @@ count_test <- function(key) {
   tests$.data[[4L]] <- .current_test$i
 
   tests$.value <- .counters[[key]]$value
-  with(tests, tally[.value,] <- .data)
+  with(tests, tally[.value, ] <- .data)
 }
 
 #' Initialize a new test counter for a coverage trace
@@ -230,6 +230,9 @@ update_current_test <- function() {
   .current_test$index <- current_test_index()
   .current_test$call_count <- current_test_call_count()
 
+  # scrub test trace, needs to happen _after_ key generation or srcref is lost
+  .current_test$trace <- lapply(.current_test$trace, scrub_anon_fn_envs)
+
   # NOTE: r-bugs 18348
   # restrict test call lengths to avoid R Rds deserialization limit
   # https://bugs.r-project.org/show_bug.cgi?id=18348
@@ -260,11 +263,14 @@ update_current_test <- function() {
 #'
 #' @keywords internal
 current_test_key <- function() {
-  if (!inherits(.current_test$src, "srcref")) return("")
-  file.path(
-    dirname(get_source_filename(.current_test$src, normalize = TRUE)),
-    key(.current_test$src)
-  )
+  if (inherits(.current_test$src, "srcref")) {
+    file.path(
+      dirname(get_source_filename(.current_test$src, normalize = TRUE)),
+      key(.current_test$src)
+    )
+  } else {
+    digest::digest(.current_test$trace)
+  }
 }
 
 #' Retrieve the index for the test in `.counters$tests`
@@ -277,20 +283,13 @@ current_test_key <- function() {
 #'
 #' @keywords internal
 current_test_index <- function() {
-  # check if test has already been encountered and reuse test index
-  if (inherits(.current_test$src, "srcref")) {
+  if (is.null(.counters$tests[[.current_test$key]])) {
+    length(.counters$tests) + 1L
+  } else {
     # when tests have srcrefs, we can quickly compare test keys
     match(
       .current_test$key,
       names(.counters$tests),
-      nomatch = length(.counters$tests) + 1L
-    )
-  } else {
-    # otherwise we compare call stacks
-    Position(
-      function(t) identical(t[], .current_test$trace),  # t[] to ignore attr
-      .counters$tests,
-      right = TRUE,
       nomatch = length(.counters$tests) + 1L
     )
   }
@@ -329,6 +328,29 @@ truncate_call <- function(call_obj, limit = 1e4) {
   call_obj
 }
 
+#' Scrub Environments from Anonymous Function Calls
+#'
+#' When a sys call is to an anonymous function, the anonymous function is
+#' included as the object that the call is against. This function binds its
+#' calling environment, which may bloat the sys calls object and in worst
+#' case scenario might contain C API memory pointers that can produce
+#' segmentation faults when serialized to disk.
+#'
+#' As the environment data is not useful after saving the coverage traces to
+#' disk and restoring them in the parent R session, these are discarded and
+#' replaced with an `emptyenv()`
+#'
+#' @param calls A call object which we should
+#'
+scrub_anon_fn_envs <- function(x) {
+  if (is.call(x)) {
+    return(as.call(lapply(x, scrub_anon_fn_envs)))
+  } else if (!is.null(x) && !is.null(environment(x))) {
+    environment(x) <- emptyenv()
+  }
+  x
+}
+
 #' Returns TRUE if we've moved on from test reflected in .current_test
 #'
 #' Quickly dismiss the need to update the current test if we can. To test if
@@ -339,9 +361,9 @@ truncate_call <- function(call_obj, limit = 1e4) {
 #'
 is_current_test_finished <- function() {
   is.null(.current_test$src) ||
-  .current_test$last_frame > sys.nframe() ||
-  !identical(.current_test$src_call, sys.call(which = .current_test$last_frame)) ||
-  !identical(.current_test$src_env, sys.frame(which = .current_test$last_frame - 1L))
+    .current_test$last_frame > sys.nframe() ||
+    !identical(.current_test$src_call, sys.call(which = .current_test$last_frame)) ||
+    !identical(.current_test$src_env, sys.frame(which = .current_test$last_frame - 1L))
 }
 
 #' Is the source bound to the expression

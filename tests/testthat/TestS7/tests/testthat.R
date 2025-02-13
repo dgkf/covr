@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(covr)
+library(TestS7)
 
-test_check("covr")
+test_check("TestS7")

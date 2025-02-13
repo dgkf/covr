@@ -80,6 +80,7 @@
 #' @import methods
 #' @importFrom stats aggregate na.omit na.pass setNames
 #' @importFrom utils capture.output getSrcFilename relist str head
+#' @importFrom httr content RETRY upload_file
 NULL
 
 the <- new.env(parent = emptyenv())
@@ -93,6 +94,7 @@ trace_environment <- function(env) {
       replacements_S4(env),
       replacements_RC(env),
       replacements_R6(env),
+      replacements_S7(env),
       replacements_box(env),
       lapply(ls(env, all.names = TRUE), replacement, env = env)))
 
@@ -364,7 +366,7 @@ package_coverage <- function(path = ".",
                              code = character(),
                              install_path = temp_file("R_LIBS"),
                              ...,
-                             exclusions, pre_clean=TRUE) {
+                             exclusions, pre_clean = TRUE) {
 
   if (!missing(exclusions)) {
     warning(
@@ -409,6 +411,8 @@ package_coverage <- function(path = ".",
     root <- NULL
   }
 
+  # tools::testInstalledPackage requires normalized install_path (#517)
+  install_path <- normalize_path(install_path)
   dir.create(install_path)
 
   flags <- getOption("covr.flags")
@@ -416,8 +420,7 @@ package_coverage <- function(path = ".",
   # check for compiler
   if (!uses_icc()) {
     flags <- getOption("covr.flags")
-  }
-  else {
+  } else {
     if (length(getOption("covr.icov")) > 0L) {
       flags <- getOption("covr.icov_flags")
       # clean up old icov files
@@ -458,7 +461,12 @@ package_coverage <- function(path = ".",
 
       name <- if (.Platform$OS.type == "windows") "R.exe" else "R"
       path <- file.path(R.home("bin"), name)
-      system2(path, args)
+      system2(
+        path,
+        args,
+        stdout = if (quiet) NULL else "",
+        stderr = if (quiet) NULL else ""
+      )
     })
   )
 
@@ -697,7 +705,7 @@ merge_coverage_tests <- function(from, into = NULL) {
   # modify trace test tallies
   for (name in intersect(names(into), names(from))) {
     if (name == "tests") next
-    from[[name]]$tests$tally[,1L] <- test_idx[from[[name]]$tests$tally[,1L]]
+    from[[name]]$tests$tally[, 1L] <- test_idx[from[[name]]$tests$tally[, 1L]]
     into[[name]]$tests$tally <- rbind(into[[name]]$tests$tally, from[[name]]$tests$tally)
   }
 

@@ -1,5 +1,17 @@
 # covr (development version)
 
+* `covr.record_tests` logging performance improved by storing tests using
+  a hash of their call stack, avoiding costly comparisions. (@dgkf)
+
+* covr now uses `testthat::with_mocked_bindings()` for its internal testing (@olivroy, #595).
+
+* Fix R CMD check NOTE: non-API calls to SET_BODY, SET_CLOENV, SET_FORMALS (@t-kalinowski, #587)
+
+* Fix a bug preventing `package_coverage()` from running tests when `install_path` is set to a relative path (@gergness, #517, #548).
+
+* Fixed a performance regression and an error triggered by a change in R
+  4.4.0. (@kyleam, #588)
+
 * Hotfix failures due to `NA` coverage trace `srcrefs` encountered in rare
   cases when applying coverage exclusions. This is understood to be due to a
   change in base R. Until a root cause is discovered, this work-around will
@@ -8,10 +20,17 @@
 * Fixed an issue where attempting to generate code coverage on an already-loaded
   package could fail on Windows. (@kevinushey, #574)
 
+* Prevent `covr.record_tests` storing calling environments of anonymous
+  functions within the logged call stack. (@dgkf, #573)
+
 * Prevent `covr.record_tests` option from logging duplicate tests when the same
   line of testing code is hit repeatedly, as in a loop. (@dgkf, #528)
 
 * Added support for `klmr/box` modules. This works best with `file_coverage()`. (@radbasa, #491)
+
+* Normalize `install_path` path before creating directory to prevent
+  failures when running covr in a subprocess using a path with Windows 
+  `\\` path separators. (@maksymiuks, #592)
 
 # covr 3.6.4
 
