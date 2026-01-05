@@ -1,7 +1,10 @@
 # covr (development version)
 
 * Fix a rare edge case where `count_test` was called before `.current_test` has
-  been initialized leading to crash (@maksymiuks).
+  been initialized leading to crash (@maksymiuks, #631).
+
+* Fix rare error in `clean_coverage_tests` where `NA` were being compared
+  in `if` condition (@maksymiuks, #631).
 
 # covr 3.6.5
 
