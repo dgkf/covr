@@ -1,3 +1,11 @@
+# covr (development version)
+
+* Fix a rare edge case where `count_test` was called before `.current_test` has
+  been initialized leading to crash (@maksymiuks, #631).
+
+* Fix rare error in `clean_coverage_tests` where `NA` were being compared
+  in `if` condition (@maksymiuks, #631).
+
 # covr 3.6.5
 
 ## New Features and improvements
@@ -7,9 +15,6 @@
 * Performance improvement for compiled code with a lot of compilation units (@krlmlr, #611)
 
 * Fix R CMD check NOTE for upcoming R 4.6: non-API calls to SET_BODY, SET_CLOENV, SET_FORMALS (@t-kalinowski, #587)
-
-* Fix a rare edge case where `count_test` was called before `.current_test` has
-  been initialized leading to crash. (@maksymiuks)
 
 ## Fixes and minor improvements
 

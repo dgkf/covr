@@ -413,7 +413,7 @@ package_coverage <- function(path = ".",
 
   # tools::testInstalledPackage requires normalized install_path (#517)
   install_path <- normalize_path(install_path)
-  dir.create(install_path)
+  dir.create(install_path, showWarnings = FALSE)
 
   # check for compiler
   if (!uses_icc()) {
@@ -666,8 +666,10 @@ clean_coverage_tests <- function(obj) {
   if (is.na(Position(counter_has_tests_tally, obj))) return()
 
   for (i in seq_along(obj)) {
-    if (is.null(val <- obj[[i]]$value)) next
-    if (is.null(n <- nrow(obj[[i]]$tests$tally)) || n < val) next
+    val <- obj[[i]]$value
+    if (is.null(val) || is.na(val)) next
+    n <- nrow(obj[[i]]$tests$tally
+    if (is.null(n) || is.na(n) || n < val) next
     obj[[i]]$tests$tally <- obj[[i]]$tests$tally[seq_len(val),,drop = FALSE]
   }
 }
